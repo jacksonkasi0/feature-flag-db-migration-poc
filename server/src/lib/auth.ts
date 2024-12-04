@@ -21,4 +21,5 @@ export const auth = betterAuth({
     autoSignIn: true,
     minPasswordLength: 8,
   },
+  trustedOrigins :  env.ALLOWED_ORIGINS?.split(",") || [],
 });

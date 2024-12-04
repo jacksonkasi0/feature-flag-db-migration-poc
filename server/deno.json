@@ -12,5 +12,8 @@
     "better-auth": "npm:better-auth@^1.0.10",
     "drizzle-kit": "npm:drizzle-kit@^0.29.1",
     "drizzle-orm": "npm:drizzle-orm@^0.37.0"
+  },
+  "compilerOptions": {
+    "strict": true
   }
 }
