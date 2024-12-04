@@ -1,8 +1,16 @@
 {
   "tasks": {
-    "dev": "deno run --watch ./src/main.ts"
+    "dev": "deno serve --env-file --allow-net --allow-env --watch ./src/main.ts",
+    "generate": "drizzle-kit generate",
+    "push": "drizzle-kit push",
+    "migrate": "drizzle-kit migrate",
+    "studio": "drizzle-kit studio"
   },
   "imports": {
-    "better-auth": "npm:better-auth@^1.0.10"
+    "@/": "./src/",
+    "@hono/hono": "jsr:@hono/hono@^4.6.12",
+    "better-auth": "npm:better-auth@^1.0.10",
+    "drizzle-kit": "npm:drizzle-kit@^0.29.1",
+    "drizzle-orm": "npm:drizzle-orm@^0.37.0"
   }
 }
