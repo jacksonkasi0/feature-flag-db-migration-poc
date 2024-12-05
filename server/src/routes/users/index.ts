@@ -6,10 +6,24 @@ import { user } from "@/db/schema/index.ts";
 
 export const usersApi = new Hono();
 
+const userContext = { user_id: "123", country: "US" };
+
 usersApi.get("/get-all", async (c) => {
   try {
     // Fetch users from the database
-    const users = await db.select().from(user);
+    // const users = await db.query.user
+    //   .findMany({
+    //     columns: {
+    //       name: true,
+    //     },
+    //   });
+
+    const users = await db
+      .select({
+        name: user.name,
+      })
+      .from(user)
+    .execute({ userContext });
 
     return c.json(
       {

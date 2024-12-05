@@ -15,7 +15,7 @@ const oldDb: NodePgDatabase<typeof schema> = drizzle(env.OLD_DATABASE_URL!, {
 // Default user context
 const defaultUserContext = {
   user_id: "anonymous", // Default user ID
-  country: "unknown", // Default country
+  country: "unknown",   // Default country
 };
 
 /**
@@ -26,43 +26,96 @@ const defaultUserContext = {
 export const db: NodePgDatabase<typeof schema> = new Proxy(newDb, {
   get(target, prop) {
     if (typeof target[prop as keyof typeof target] === "function") {
-      return async (...args: any[]) => {
-        // Extract userContext from arguments or fallback to default
-        const userContext = args[0]?.userContext || defaultUserContext;
+      // Methods that return query builders
+      if (["select", "insert", "update", "delete"].includes(prop as string)) {
+        return (...args: any[]) => {
+          const queryBuilderNewDb = (newDb as any)[prop](...args);
+          const queryBuilderOldDb = (oldDb as any)[prop](...args);
 
-        // Evaluate feature flags using the resolved userContext
-        const flags = await evaluateFlags(userContext);
-        const { writeToNewDB, writeToOldDB, readFromNewDB, readFromOldDB } =
-          flags;
-
-        if (prop === "insert" || prop === "update" || prop === "delete") {
-          // Write operations
-          const promises = [];
-          if (writeToNewDB) {
-            promises.push((newDb as any)[prop](...args));
-          }
-          if (writeToOldDB) {
-            promises.push((oldDb as any)[prop](...args));
-          }
-          return Promise.all(promises);
-        } else if (prop === "select") {
-          // Read operations
-          let result: any = [];
-          if (readFromNewDB) {
-            result = result.concat(await (newDb as any)[prop](...args));
-          }
-          if (readFromOldDB) {
-            result = result.concat(await (oldDb as any)[prop](...args));
-          }
-          return result;
-        }
-
-        // For other operations, default to the new database
-        return (newDb as any)[prop](...args);
-      };
+          // Return a proxy over the query builder
+          return createDualQueryBuilder(queryBuilderNewDb, queryBuilderOldDb, prop as string);
+        };
+      } else {
+        // For other functions, default to the new database
+        return (...args: any[]) => {
+          return (newDb as any)[prop](...args);
+        };
+      }
+    } else {
+      // Return properties directly for non-function calls
+      return target[prop as keyof typeof target];
     }
-
-    // Return properties directly for non-function calls
-    return target[prop as keyof typeof target];
   },
 });
+
+function createDualQueryBuilder(
+  queryBuilderNewDb: any,
+  queryBuilderOldDb: any,
+  operationType: string
+): any {
+  return new Proxy(
+    {},
+    {
+      get(_, prop) {
+        if (prop === 'then') {
+          return (onFulfilled: any, onRejected: any) => {
+            return (async () => {
+              // Extract userContext
+              const userContext = defaultUserContext; // Adjust as needed or extract from somewhere if provided
+
+              // Evaluate feature flags
+              const flags = await evaluateFlags(userContext);
+              const {
+                writeToNewDB,
+                writeToOldDB,
+                readFromNewDB,
+                readFromOldDB,
+              } = flags;
+
+              if (operationType === "select") {
+                // Read operation
+                let results: any[] = [];
+                if (readFromNewDB) {
+                  results = results.concat(
+                    await queryBuilderNewDb
+                  );
+                }
+                if (readFromOldDB) {
+                  results = results.concat(
+                    await queryBuilderOldDb
+                  );
+                }
+                return results;
+              } else {
+                // Write operation
+                const promises = [];
+                if (writeToNewDB) {
+                  promises.push(queryBuilderNewDb);
+                }
+                if (writeToOldDB) {
+                  promises.push(queryBuilderOldDb);
+                }
+                return Promise.all(promises);
+              }
+            })().then(onFulfilled, onRejected);
+          };
+        } else {
+          // For chainable methods, apply them to both query builders
+          const methodNewDb = queryBuilderNewDb[prop];
+          const methodOldDb = queryBuilderOldDb[prop];
+
+          if (typeof methodNewDb === 'function' && typeof methodOldDb === 'function') {
+            return (...args: any[]) => {
+              const newQueryBuilderNewDb = methodNewDb.apply(queryBuilderNewDb, args);
+              const newQueryBuilderOldDb = methodOldDb.apply(queryBuilderOldDb, args);
+              return createDualQueryBuilder(newQueryBuilderNewDb, newQueryBuilderOldDb, operationType);
+            };
+          } else {
+            // Return property from newDb's query builder
+            return methodNewDb;
+          }
+        }
+      },
+    }
+  );
+}
