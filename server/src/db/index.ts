@@ -7,7 +7,6 @@ import { evaluateFlags } from "@/lib/flags/feature_flags.ts";
 const newDb: NodePgDatabase<typeof schema> = drizzle(env.DATABASE_URL!, {
   schema,
 });
-
 const oldDb: NodePgDatabase<typeof schema> = drizzle(env.OLD_DATABASE_URL!, {
   schema,
 });
@@ -25,7 +24,54 @@ const defaultUserContext = {
  */
 export const db: NodePgDatabase<typeof schema> = new Proxy(newDb, {
   get(target, prop) {
-    if (typeof target[prop as keyof typeof target] === "function") {
+    if (prop === 'query') {
+      // Return a Proxy over newDb.query
+      const queryNewDb = newDb.query;
+      const queryOldDb = oldDb.query;
+
+      return new Proxy(queryNewDb, {
+        get(queryTarget, modelProp) {
+          if (typeof modelProp === 'string' && modelProp in queryNewDb) {
+            const modelNewDb = queryNewDb[modelProp as keyof typeof queryNewDb];
+            const modelOldDb = queryOldDb[modelProp as keyof typeof queryOldDb];
+
+            if (modelNewDb && modelOldDb) {
+              // Return a Proxy over the model methods
+              return new Proxy(modelNewDb, {
+                get(modelTarget, methodProp) {
+                  if (typeof methodProp === 'string' && typeof modelTarget[methodProp as keyof typeof modelTarget] === 'function') {
+                    // Intercept method calls like findMany, findFirst, etc.
+                    return (...args: any[]) => {
+                      const methodNewDb = modelNewDb[methodProp as keyof typeof modelNewDb] as Function;
+                      const methodOldDb = modelOldDb[methodProp as keyof typeof modelOldDb] as Function;
+
+                      const resultNewDb = methodNewDb.apply(modelNewDb, args);
+                      const resultOldDb = methodOldDb.apply(modelOldDb, args);
+
+                      // Return a proxy over the result to allow .withUserContext
+                      return createDualQueryBuilder(
+                        resultNewDb,
+                        resultOldDb,
+                        methodProp as string
+                      );
+                    };
+                  } else {
+                    // Return property directly
+                    return modelTarget[methodProp as keyof typeof modelTarget];
+                  }
+                }
+              });
+            } else {
+              // Return property directly
+              return queryTarget[modelProp as keyof typeof queryTarget];
+            }
+          } else {
+            // Return property directly
+            return queryTarget[modelProp as keyof typeof queryTarget];
+          }
+        }
+      });
+    } else if (typeof target[prop as keyof typeof target] === "function") {
       // Methods that return query builders
       if (["select", "insert", "update", "delete"].includes(prop as string)) {
         return (...args: any[]) => {
@@ -33,7 +79,11 @@ export const db: NodePgDatabase<typeof schema> = new Proxy(newDb, {
           const queryBuilderOldDb = (oldDb as any)[prop](...args);
 
           // Return a proxy over the query builder
-          return createDualQueryBuilder(queryBuilderNewDb, queryBuilderOldDb, prop as string);
+          return createDualQueryBuilder(
+            queryBuilderNewDb,
+            queryBuilderOldDb,
+            prop as string
+          );
         };
       } else {
         // For other functions, default to the new database
@@ -51,20 +101,35 @@ export const db: NodePgDatabase<typeof schema> = new Proxy(newDb, {
 function createDualQueryBuilder(
   queryBuilderNewDb: any,
   queryBuilderOldDb: any,
-  operationType: string
+  operationType: string,
+  userContext: any = defaultUserContext
 ): any {
   return new Proxy(
     {},
     {
       get(_, prop) {
-        if (prop === 'then') {
+        if (prop === 'withUserContext') {
+          return (newUserContext: any) => {
+            // Return a new proxy with the updated userContext
+            return createDualQueryBuilder(
+              queryBuilderNewDb,
+              queryBuilderOldDb,
+              operationType,
+              newUserContext
+            );
+          };
+        } else if (prop === 'then') {
           return (onFulfilled: any, onRejected: any) => {
             return (async () => {
-              // Extract userContext
-              const userContext = defaultUserContext; // Adjust as needed or extract from somewhere if provided
+              // Debug log of the userContext
+              console.debug('User context:', userContext);
 
               // Evaluate feature flags
               const flags = await evaluateFlags(userContext);
+
+              // Debug log of the evaluated feature flags
+              console.debug('Evaluated feature flags:', flags);
+
               const {
                 writeToNewDB,
                 writeToOldDB,
@@ -72,7 +137,10 @@ function createDualQueryBuilder(
                 readFromOldDB,
               } = flags;
 
-              if (operationType === "select") {
+              // Determine if the operation is read or write
+              const isReadOperation = ["select", "findMany", "findFirst", "findUnique"].includes(operationType);
+
+              if (isReadOperation) {
                 // Read operation
                 let results: any[] = [];
                 if (readFromNewDB) {
@@ -104,11 +172,19 @@ function createDualQueryBuilder(
           const methodNewDb = queryBuilderNewDb[prop];
           const methodOldDb = queryBuilderOldDb[prop];
 
-          if (typeof methodNewDb === 'function' && typeof methodOldDb === 'function') {
+          if (
+            typeof methodNewDb === 'function' &&
+            typeof methodOldDb === 'function'
+          ) {
             return (...args: any[]) => {
               const newQueryBuilderNewDb = methodNewDb.apply(queryBuilderNewDb, args);
               const newQueryBuilderOldDb = methodOldDb.apply(queryBuilderOldDb, args);
-              return createDualQueryBuilder(newQueryBuilderNewDb, newQueryBuilderOldDb, operationType);
+              return createDualQueryBuilder(
+                newQueryBuilderNewDb,
+                newQueryBuilderOldDb,
+                operationType,
+                userContext // Pass along the current userContext
+              );
             };
           } else {
             // Return property from newDb's query builder
