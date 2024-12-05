@@ -1,7 +1,6 @@
 import {
   pgTable,
   text,
-  integer,
   timestamp,
   boolean,
 } from "drizzle-orm/pg-core";
@@ -12,6 +11,7 @@ export const user = pgTable("user", {
   email: text("email").notNull().unique(),
   emailVerified: boolean("emailVerified").notNull(),
   image: text("image"),
+  country: text("country").default('india').notNull(),
   createdAt: timestamp("createdAt").notNull(),
   updatedAt: timestamp("updatedAt").notNull(),
 });
