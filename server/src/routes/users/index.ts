@@ -11,25 +11,28 @@ const userContext = { user_id: "123", country: "US" };
 usersApi.get("/get-all", async (c) => {
   try {
     // Fetch users from the database
-    // const users = await db.query.user
-    //   .findMany({
-    //     columns: {
-    //       name: true,
-    //     },
-    //   });
+    const method_1 = await db.query.user
+      .findMany({
+        columns: {
+          name: true,
+        },
+      })
+      // @ts-ignore: type-error fix
+      .withUserContext(userContext);
 
-    const users = await db
+    const method_2 = await db
       .select({
         name: user.name,
       })
       .from(user)
-    .execute({ userContext });
+      // @ts-ignore: type-error fix
+      .withUserContext(userContext);
 
     return c.json(
       {
         success: true,
         message: "Successfully fetched all users",
-        data: users,
+        data: method_2,
       },
       200
     );
