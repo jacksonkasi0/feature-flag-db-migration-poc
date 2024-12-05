@@ -2,6 +2,7 @@ import {
   getDevCycleClient,
   getOpenFeatureClient,
 } from "@/config/devcycle_config.ts";
+import { DevCycleUser } from "@devcycle/nodejs-server-sdk"; // Import the DevCycleUser type
 
 export async function evaluateFlags(userContext: {
   user_id: string;
@@ -10,19 +11,25 @@ export async function evaluateFlags(userContext: {
   const devCycleClient = getDevCycleClient();
   const openFeatureClient = getOpenFeatureClient();
 
+  // Construct the DevCycleUser object
+  const devCycleUser: DevCycleUser = {
+    user_id: userContext.user_id,
+    country: userContext.country,
+  };
+
   // Evaluate flag for writing to the new database
   const writeToNewDB = await devCycleClient.variableValue(
+    devCycleUser, // Pass the correct user object
     "write-to-new-db",
     false, // Default value
-    userContext
   );
   console.log("Write to new DB flag value:", writeToNewDB);
 
   // Evaluate flag for writing to the old database
   const writeToOldDB = await devCycleClient.variableValue(
+    devCycleUser, // Pass the correct user object
     "write-to-old-db",
     true, // Default value (write to old DB is enabled by default)
-    userContext
   );
   console.log("Write to old DB flag value:", writeToOldDB);
 
@@ -30,7 +37,7 @@ export async function evaluateFlags(userContext: {
   const readFromNewDB = await openFeatureClient.getBooleanValue(
     "read-from-new-db",
     false, // Default value
-    userContext
+    devCycleUser, // Pass the correct user object
   );
   console.log("Read from new DB flag value:", readFromNewDB);
 
@@ -38,7 +45,7 @@ export async function evaluateFlags(userContext: {
   const readFromOldDB = await openFeatureClient.getBooleanValue(
     "read-from-old-db",
     true, // Default value (read from old DB is enabled by default)
-    userContext
+    devCycleUser // Pass the correct user object
   );
   console.log("Read from old DB flag value:", readFromOldDB);
 
