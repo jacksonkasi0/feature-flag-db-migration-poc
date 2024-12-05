@@ -1,5 +1,7 @@
 {
   "dependencies": {
+    "@devcycle/nodejs-server-sdk": "^1.38.1",
+    "@openfeature/server-sdk": "^1.16.2",
     "drizzle-orm": "^0.37.0",
     "pg": "^8.13.1"
   },

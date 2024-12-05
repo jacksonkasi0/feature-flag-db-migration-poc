@@ -1,4 +1,4 @@
-import { Pool } from "pg";
+// import { Pool } from "pg";
 import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
 
 // ** import config
@@ -8,17 +8,19 @@ import { env } from "@/config/index.ts";
 import { evaluateFlags } from "@/lib/flags/feature_flags.ts";
 
 // Configure connections for new and old databases
-const newDbPool = new Pool({
-  connectionString: env.DATABASE_URL,
-});
+// const newDbPool = new Pool({
+//   connectionString: env.DATABASE_URL,
+// });
 
-const oldDbPool = new Pool({
-  connectionString: env.OLD_DATABASE_URL,
-});
+// const oldDbPool = new Pool({
+//   connectionString: env.OLD_DATABASE_URL,
+// });
 
 // Create Drizzle instances for both databases
-const newDb = drizzle(newDbPool);
-const oldDb = drizzle(oldDbPool);
+const newDb = drizzle(env.DATABASE_URL!);
+// drizzle(newDbPool);
+const oldDb = drizzle(env.OLD_DATABASE_URL!);
+// drizzle(oldDbPool);
 
 /**
  * A wrapper for the Drizzle ORM database object.
@@ -30,7 +32,8 @@ export const db: NodePgDatabase = new Proxy(newDb, {
       return async (...args: any[]) => {
         // Evaluate feature flags
         const flags = await evaluateFlags(args[0]?.userContext || {});
-        const { writeToNewDB, writeToOldDB, readFromNewDB, readFromOldDB } = flags;
+        const { writeToNewDB, writeToOldDB, readFromNewDB, readFromOldDB } =
+          flags;
 
         if (prop === "insert" || prop === "update" || prop === "delete") {
           // Write operations

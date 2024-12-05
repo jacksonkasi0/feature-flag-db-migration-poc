@@ -1,8 +1,8 @@
 import {
   initializeDevCycle,
-  DevCycleClient,
+  type DevCycleClient,
 } from "@devcycle/nodejs-server-sdk";
-import { OpenFeature, Client } from "@openfeature/server-sdk";
+import { OpenFeature, type Client } from "@openfeature/server-sdk";
 
 // ** import config
 import { env } from "@/config/index.ts";
