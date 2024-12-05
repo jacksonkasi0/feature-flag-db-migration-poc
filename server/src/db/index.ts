@@ -1,19 +1,21 @@
 import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
-
-// ** import config
 import { env } from "@/config/index.ts";
-
-// ** import lib
+import * as schema from "@/db/schema/index.ts";
 import { evaluateFlags } from "@/lib/flags/feature_flags.ts";
 
-// Create Drizzle instances for both databases
-const newDb = drizzle(env.DATABASE_URL!);
-const oldDb = drizzle(env.OLD_DATABASE_URL!);
+// Create Drizzle instances for both databases with the schema
+const newDb: NodePgDatabase<typeof schema> = drizzle(env.DATABASE_URL!, {
+  schema,
+});
+
+const oldDb: NodePgDatabase<typeof schema> = drizzle(env.OLD_DATABASE_URL!, {
+  schema,
+});
 
 // Default user context
 const defaultUserContext = {
   user_id: "anonymous", // Default user ID
-  country: "unknown",   // Default country
+  country: "unknown", // Default country
 };
 
 /**
@@ -21,7 +23,7 @@ const defaultUserContext = {
  * Dynamically chooses the correct database (new or old) based on feature flags.
  * Uses a default user context if not explicitly provided.
  */
-export const db: NodePgDatabase = new Proxy(newDb, {
+export const db: NodePgDatabase<typeof schema> = new Proxy(newDb, {
   get(target, prop) {
     if (typeof target[prop as keyof typeof target] === "function") {
       return async (...args: any[]) => {
@@ -30,7 +32,8 @@ export const db: NodePgDatabase = new Proxy(newDb, {
 
         // Evaluate feature flags using the resolved userContext
         const flags = await evaluateFlags(userContext);
-        const { writeToNewDB, writeToOldDB, readFromNewDB, readFromOldDB } = flags;
+        const { writeToNewDB, writeToOldDB, readFromNewDB, readFromOldDB } =
+          flags;
 
         if (prop === "insert" || prop === "update" || prop === "delete") {
           // Write operations

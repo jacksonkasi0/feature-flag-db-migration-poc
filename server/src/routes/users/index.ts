@@ -9,7 +9,7 @@ export const usersApi = new Hono();
 usersApi.get("/get-all", async (c) => {
   try {
     // Fetch users from the database
-    const users = await db.select(user);
+    const users = await db.select().from(user);
 
     return c.json(
       {
