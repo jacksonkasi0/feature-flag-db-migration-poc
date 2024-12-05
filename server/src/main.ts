@@ -8,7 +8,7 @@ import { auth } from "@/lib/auth.ts";
 import { initializeDevCycleWithOpenFeature } from "@/config/devcycle_config.ts";
 
 // ** import routes
-// import { routes } from "@/routers";
+import { routes } from "@/routes/index.ts";
 
 const app = new Hono();
 
@@ -31,6 +31,6 @@ app.on(["POST", "GET"], "/api/auth/**", (c) => {
   return auth.handler(c.req.raw);
 });
 
-// app.route("/api", routes);
+app.route("/api", routes);
 
 Deno.serve(app.fetch);
