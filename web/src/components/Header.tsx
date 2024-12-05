@@ -9,6 +9,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 // ** import lib
 import { useSession } from "@/lib/auth-client";
 
+// ** import Link
+import Link from "next/link";
+
 interface UserProfile {
   id: string;
   name: string;
@@ -41,7 +44,9 @@ export const Header = () => {
 
   return (
     <header className="flex items-center justify-between w-full px-4 py-2 bg-white border-b border-gray-200">
-      <h1 className="text-lg font-semibold text-gray-800">My App</h1>
+      <Link href="/" className="text-lg font-semibold text-gray-800">
+        Tweet
+      </Link>
       <Separator orientation="vertical" className="h-6 mx-4" />
       {isPending ? (
         <div className="text-gray-500">Loading... ⌛</div>
@@ -61,7 +66,12 @@ export const Header = () => {
           </Avatar>
         </div>
       ) : (
-        <span className="text-sm text-gray-500">Please log in</span>
+        <Link
+          href="/sign-in"
+          className="text-sm font-medium text-blue-600 hover:underline"
+        >
+          Please log in
+        </Link>
       )}
     </header>
   );
