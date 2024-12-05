@@ -4,10 +4,15 @@ import { cors } from "@hono/hono/cors";
 // ** import lib
 import { auth } from "@/lib/auth.ts";
 
+// ** import config
+import { initializeDevCycleWithOpenFeature } from "@/config/devcycle_config.ts";
+
 // ** import routes
 // import { routes } from "@/routers";
 
 const app = new Hono();
+
+await initializeDevCycleWithOpenFeature()
 
 // Enable CORS for your frontend
 app.use(
