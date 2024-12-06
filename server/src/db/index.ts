@@ -14,7 +14,7 @@ const oldDb: NodePgDatabase<typeof schema> = drizzle(env.OLD_DATABASE_URL!, {
 // Default user context
 const defaultUserContext = {
   user_id: "anonymous", // Default user ID
-  country: "unknown",   // Default country
+  country: "unknown", // Default country
 };
 
 /**
@@ -24,14 +24,14 @@ const defaultUserContext = {
  */
 export const db: NodePgDatabase<typeof schema> = new Proxy(newDb, {
   get(target, prop) {
-    if (prop === 'query') {
+    if (prop === "query") {
       // Return a Proxy over newDb.query
       const queryNewDb = newDb.query;
       const queryOldDb = oldDb.query;
 
       return new Proxy(queryNewDb, {
         get(queryTarget, modelProp) {
-          if (typeof modelProp === 'string' && modelProp in queryNewDb) {
+          if (typeof modelProp === "string" && modelProp in queryNewDb) {
             const modelNewDb = queryNewDb[modelProp as keyof typeof queryNewDb];
             const modelOldDb = queryOldDb[modelProp as keyof typeof queryOldDb];
 
@@ -39,11 +39,20 @@ export const db: NodePgDatabase<typeof schema> = new Proxy(newDb, {
               // Return a Proxy over the model methods
               return new Proxy(modelNewDb, {
                 get(modelTarget, methodProp) {
-                  if (typeof methodProp === 'string' && typeof modelTarget[methodProp as keyof typeof modelTarget] === 'function') {
+                  if (
+                    typeof methodProp === "string" &&
+                    typeof modelTarget[
+                      methodProp as keyof typeof modelTarget
+                    ] === "function"
+                  ) {
                     // Intercept method calls like findMany, findFirst, etc.
                     return (...args: any[]) => {
-                      const methodNewDb = modelNewDb[methodProp as keyof typeof modelNewDb] as Function;
-                      const methodOldDb = modelOldDb[methodProp as keyof typeof modelOldDb] as Function;
+                      const methodNewDb = modelNewDb[
+                        methodProp as keyof typeof modelNewDb
+                      ] as Function;
+                      const methodOldDb = modelOldDb[
+                        methodProp as keyof typeof modelOldDb
+                      ] as Function;
 
                       const resultNewDb = methodNewDb.apply(modelNewDb, args);
                       const resultOldDb = methodOldDb.apply(modelOldDb, args);
@@ -59,7 +68,7 @@ export const db: NodePgDatabase<typeof schema> = new Proxy(newDb, {
                     // Return property directly
                     return modelTarget[methodProp as keyof typeof modelTarget];
                   }
-                }
+                },
               });
             } else {
               // Return property directly
@@ -69,7 +78,7 @@ export const db: NodePgDatabase<typeof schema> = new Proxy(newDb, {
             // Return property directly
             return queryTarget[modelProp as keyof typeof queryTarget];
           }
-        }
+        },
       });
     } else if (typeof target[prop as keyof typeof target] === "function") {
       // Methods that return query builders
@@ -108,7 +117,7 @@ function createDualQueryBuilder(
     {},
     {
       get(_, prop) {
-        if (prop === 'withUserContext') {
+        if (prop === "withUserContext") {
           return (newUserContext: any) => {
             // Return a new proxy with the updated userContext
             return createDualQueryBuilder(
@@ -118,52 +127,72 @@ function createDualQueryBuilder(
               newUserContext
             );
           };
-        } else if (prop === 'then') {
+        } else if (prop === "then") {
           return (onFulfilled: any, onRejected: any) => {
             return (async () => {
               // Debug log of the userContext
-              console.debug('User context:', userContext);
-
-              // Evaluate feature flags
-              const flags = await evaluateFlags(userContext);
-
-              // Debug log of the evaluated feature flags
-              console.debug('Evaluated feature flags:', flags);
-
-              const {
-                writeToNewDB,
-                writeToOldDB,
-                readFromNewDB,
-                readFromOldDB,
-              } = flags;
-
-              // Determine if the operation is read or write
-              const isReadOperation = ["select", "findMany", "findFirst", "findUnique"].includes(operationType);
-
-              if (isReadOperation) {
-                // Read operation
-                let results: any[] = [];
-                if (readFromNewDB) {
-                  results = results.concat(
-                    await queryBuilderNewDb
-                  );
-                }
-                if (readFromOldDB) {
-                  results = results.concat(
-                    await queryBuilderOldDb
-                  );
-                }
-                return results;
-              } else {
-                // Write operation
-                const promises = [];
-                if (writeToNewDB) {
-                  promises.push(queryBuilderNewDb);
-                }
-                if (writeToOldDB) {
+              console.debug("User context:", userContext);
+            
+              try {
+                // Evaluate the feature flags based on the user context
+                const flags = await evaluateFlags(userContext);
+            
+                // Debug log of the evaluated feature flags
+                // console.debug("Evaluated feature flags:", flags);
+            
+                const {
+                  readFromOldDB, // Always true
+                  writeToOldDB, // Always true
+                  writeToNewDB, // Dynamic flag for writing to the new DB
+                  readFromNewDB, // Dynamic flag for reading from the new DB
+                } = flags;
+            
+                // Determine if the operation is a read or write
+                const isReadOperation = [
+                  "select",
+                  "findMany",
+                  "findFirst",
+                  "findUnique",
+                ].includes(operationType);
+            
+                if (isReadOperation) {
+                  // Read operation
+                  let results: any[] = [];
+            
+                  // If readFromNewDB = true, read only from the new DB
+                  if (readFromNewDB) {
+                    console.log("Reading from the new database.");
+                    results = await queryBuilderNewDb;
+                  } else {
+                    // readFromNewDB = false, read only from the old DB
+                    // (readFromOldDB is always true, but we ignore the new DB in this scenario)
+                    console.log("Reading from the old database.");
+                    results = await queryBuilderOldDb;
+                  }
+            
+                  return results;
+                } else {
+                  // Write operation
+                  const promises: Promise<any>[] = [];
+            
+                  // Always write to the old DB
+                  console.log("Writing to the old database.");
                   promises.push(queryBuilderOldDb);
+            
+                  // If writeToNewDB = true, also write to the new DB
+                  if (writeToNewDB) {
+                    console.log("Writing to the new database.");
+                    promises.push(queryBuilderNewDb);
+                  }
+                  
+                  return Promise.all(promises);
                 }
-                return Promise.all(promises);
+              } catch (error) {
+                // Enhanced error handling
+                console.error("Error during database operation:", error);
+                throw new Error(
+                  "An error occurred while processing the database operation"
+                );
               }
             })().then(onFulfilled, onRejected);
           };
@@ -173,12 +202,18 @@ function createDualQueryBuilder(
           const methodOldDb = queryBuilderOldDb[prop];
 
           if (
-            typeof methodNewDb === 'function' &&
-            typeof methodOldDb === 'function'
+            typeof methodNewDb === "function" &&
+            typeof methodOldDb === "function"
           ) {
             return (...args: any[]) => {
-              const newQueryBuilderNewDb = methodNewDb.apply(queryBuilderNewDb, args);
-              const newQueryBuilderOldDb = methodOldDb.apply(queryBuilderOldDb, args);
+              const newQueryBuilderNewDb = methodNewDb.apply(
+                queryBuilderNewDb,
+                args
+              );
+              const newQueryBuilderOldDb = methodOldDb.apply(
+                queryBuilderOldDb,
+                args
+              );
               return createDualQueryBuilder(
                 newQueryBuilderNewDb,
                 newQueryBuilderOldDb,

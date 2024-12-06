@@ -21,20 +21,9 @@ export async function evaluateFlags(userContext: {
 
   const devCycleClient = getDevCycleClient();
   const openFeatureClient = getOpenFeatureClient();
-  openFeatureClient.setContext(evaluationContext);
-
-
-  const variables = devCycleClient.allVariables(devCycleUser);
-  console.log(devCycleUser);
-  console.log(variables);
-  console.log("========");
 
   // Evaluate flag for writing to the old database
-  const writeToOldDB = await devCycleClient.variableValue(
-    devCycleUser, // Pass the correct user object
-    "write",
-    true // Default value (write to old DB is enabled by default)
-  );
+  const writeToOldDB = true; // default & fixed value
   console.log("Write to old DB flag value:", writeToOldDB);
 
   // Evaluate flag for writing to the new database
@@ -46,11 +35,7 @@ export async function evaluateFlags(userContext: {
   console.log("Write to new DB flag value:", writeToNewDB);
 
   // Evaluate flag for reading from the old database
-  const readFromOldDB = await openFeatureClient.getBooleanValue(
-    "read", // Flag key
-    true, // Default value (read from old DB is disabled by default)
-    evaluationContext // Transformed context
-  );
+  const readFromOldDB = true; // default & fixed value
   console.log("Read from old DB flag value:", readFromOldDB);
 
   // Evaluate flag for reading from the new database
