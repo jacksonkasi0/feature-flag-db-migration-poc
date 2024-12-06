@@ -23,8 +23,11 @@ export async function evaluateFlags(userContext: {
   const openFeatureClient = getOpenFeatureClient();
   openFeatureClient.setContext(evaluationContext);
 
+
   const variables = devCycleClient.allVariables(devCycleUser);
+  console.log(devCycleUser);
   console.log(variables);
+  console.log("========");
 
   // Evaluate flag for writing to the old database
   const writeToOldDB = await devCycleClient.variableValue(

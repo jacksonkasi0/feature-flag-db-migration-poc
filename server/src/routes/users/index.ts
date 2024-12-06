@@ -6,33 +6,37 @@ import { user } from "@/db/schema/index.ts";
 
 export const usersApi = new Hono();
 
-const userContext = { user_id: "123", country: "US" };
+const userContextOldSource = { user_id: "323", country: "US" };
+const userContextNewSource = { user_id: "123", country: "US" };
 
 usersApi.get("/get-all", async (c) => {
   try {
     // Fetch users from the database
-    const method_1 = await db.query.user
+    const old_source = await db.query.user
       .findMany({
         columns: {
           name: true,
         },
       })
       // @ts-ignore: type-error fix
-      .withUserContext(userContext);
+      .withUserContext(userContextOldSource);
 
-    const method_2 = await db
+    const new_Source = await db
       .select({
         name: user.name,
       })
       .from(user)
       // @ts-ignore: type-error fix
-      .withUserContext(userContext);
+      .withUserContext(userContextNewSource);
 
     return c.json(
       {
         success: true,
         message: "Successfully fetched all users",
-        data: method_2,
+        data: {
+          new_Source,
+          old_source
+        },
       },
       200
     );
