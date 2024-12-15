@@ -1,4 +1,8 @@
 {
+  "name": "server",
+  "scripts": {
+    "dev": "deno serve --env-file --allow-scripts --allow-net --allow-env --allow-sys --allow-read --watch ./src/main.ts"
+  },
   "dependencies": {
     "@devcycle/nodejs-server-sdk": "^1.38.1",
     "@openfeature/server-sdk": "^1.16.2",
