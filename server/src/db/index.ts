@@ -4,11 +4,12 @@ import * as schema from "@/db/schema/index.ts";
 import { evaluateFlags } from "@/lib/flags/feature_flags.ts";
 
 // Create Drizzle instances for both databases with the schema
-const newDb: NodePgDatabase<typeof schema> = drizzle(env.DATABASE_URL!, {
+const newDb: NodePgDatabase<typeof schema> = drizzle(env.NEW_DATABASE_URL!, {
   schema,
 });
 const oldDb: NodePgDatabase<typeof schema> = drizzle(env.OLD_DATABASE_URL!, {
   schema,
+  logger: true,
 });
 
 // Default user context
