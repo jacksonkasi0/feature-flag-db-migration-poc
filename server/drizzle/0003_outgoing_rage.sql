@@ -1,0 +1,1 @@
+ALTER TABLE "account" ALTER COLUMN "accountId" DROP NOT NULL;
