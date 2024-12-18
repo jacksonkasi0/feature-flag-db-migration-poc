@@ -34,8 +34,8 @@ usersApi.get("/get-all", async (c) => {
         success: true,
         message: "Successfully fetched all users",
         data: {
-          new_Source,
-          old_source
+          TESTER: new_Source,
+          NORMAL_USERS: old_source,
         },
       },
       200
