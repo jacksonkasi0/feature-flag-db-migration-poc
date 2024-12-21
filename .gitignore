@@ -39,3 +39,7 @@ yarn-error.log*
 
 
 .todo
+
+tmp
+
+*.crt
